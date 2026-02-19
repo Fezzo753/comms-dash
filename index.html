@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#060a12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>COMMS INTERFACE</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ09NTVMgSU5URVJGQUNFIiwic2hvcnRfbmFtZSI6IkNPTU1TIiwiZGVzY3JpcHRpb24iOiJTZWN1cmUgTXVsdGktQ2hhbm5lbCBBdWRpbyBNb25pdG9yaW5nIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwNjBhMTIiLCJ0aGVtZV9jb2xvciI6IiMwNjBhMTIiLCJpY29ucyI6W119">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  html, body {
+    height: 100%; width: 100%;
+    background: #060a12;
+    color: #c8d0e0;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: #0a0e17; }
+  ::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 2px; }
+
+  .scanline-overlay {
+    position: fixed; inset: 0; z-index: 100; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  .header {
+    border-bottom: 1px solid #141c2e;
+    padding: 8px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(180deg, #0c1018 0%, #080c14 100%);
+    flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: #00ff88;
+    box-shadow: 0 0 10px #00ff8860, 0 0 20px #00ff8830;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  .header-title { font-size: 13px; font-weight: 700; color: #e0e6f0; letter-spacing: 0.15em; }
+  .header-sub { font-size: 8px; color: #4a5578; letter-spacing: 0.12em; margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .header-time { font-size: 13px; font-weight: 600; color: #00d4ff; letter-spacing: 0.06em; text-align: right; }
+  .header-utc { font-size: 7px; color: #4a5578; letter-spacing: 0.1em; }
+  .header-badge {
+    padding: 3px 8px; border: 1px solid #00ff8840; border-radius: 3px;
+    font-size: 8px; font-weight: 600; color: #00ff88; letter-spacing: 0.12em; background: #00ff8808;
+  }
+
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  .channels-panel { flex: 1; padding: 10px 12px; overflow-y: auto; }
+  .section-label {
+    font-size: 8px; font-weight: 600; color: #4a5578; letter-spacing: 0.15em;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-label .line { flex: 1; height: 1px; background: #141c2e; }
+
+  .channel-card {
+    background: linear-gradient(135deg, #0a0e17 0%, #0f1520 100%);
+    border: 1px solid #1a2035; border-radius: 6px;
+    padding: 10px 12px; position: relative; overflow: hidden;
+    transition: border-color 0.3s ease; margin-bottom: 5px;
+  }
+  .channel-card.active { border-color: var(--ch-color-dim); }
+  .channel-card .accent {
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ch-color-dim), transparent);
+  }
+
+  .ch-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+    flex-wrap: wrap; gap: 4px;
+  }
+  .ch-left { display: flex; align-items: center; gap: 7px; }
+  .ch-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ch-color); box-shadow: 0 0 4px var(--ch-color-dim);
+  }
+  .status-dot.active {
+    box-shadow: 0 0 8px var(--ch-color), 0 0 16px var(--ch-color-dim);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .codename {
+    font-size: 12px; font-weight: 700; color: var(--ch-color);
+    letter-spacing: 0.05em;
+  }
+  .codename.glow { text-shadow: 0 0 10px var(--ch-color-dim); }
+
+  .mic-btn {
+    background: #ffffff10; border: 1px solid #ffffff20; border-radius: 4px;
+    padding: 2px 7px; color: #ffffff60; font-family: 'JetBrains Mono', monospace;
+    font-size: 8px; font-weight: 600; cursor: pointer; letter-spacing: 0.1em;
+    transition: all 0.2s ease;
+  }
+  .mic-btn.live { background: #ff336630; border-color: #ff3366; color: #ff3366; }
+
+  .ch-meta {
+    font-family: 'JetBrains Mono', monospace; font-size: 8px;
+    letter-spacing: 0.08em;
+  }
+  .ch-freq { color: #ffffff30; }
+  .ch-role { color: var(--ch-color-dim); }
+
+  .waveform-wrap { position: relative; width: 100%; height: 44px; }
+  .waveform-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  .level-meter {
+    margin-top: 5px; height: 2px; background: #0a0e14;
+    border-radius: 1px; overflow: hidden;
+  }
+  .level-fill {
+    height: 100%; border-radius: 1px; transition: width 0.05s linear;
+    background: linear-gradient(90deg, var(--ch-color-dim), var(--ch-color));
+  }
+
+  .separator {
+    height: 1px; margin: 6px 0;
+    background: linear-gradient(90deg, transparent, #ff336630, transparent);
+  }
+
+  /* Log panel - hidden on small screens by default, toggleable */
+  .log-panel {
+    width: 280px; border-left: 1px solid #141c2e; background: #070b13;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .log-header {
+    padding: 8px 12px; border-bottom: 1px solid #141c2e;
+    font-size: 8px; font-weight: 600; color: #4a5578; letter-spacing: 0.15em;
+    display: flex; justify-content: space-between;
+  }
+  .log-blink { animation: blink 1.5s step-end infinite; color: #00ff88; }
+  .log-body { flex: 1; overflow-y: auto; padding: 6px 0; }
+
+  .log-entry {
+    padding: 5px 12px; margin-bottom: 1px;
+    border-left: 2px solid var(--log-color);
+  }
+  .log-top { display: flex; justify-content: space-between; margin-bottom: 1px; }
+  .log-from { font-size: 9px; font-weight: 700; color: var(--log-from-color); letter-spacing: 0.05em; }
+  .log-time { font-size: 7px; color: #3a4560; }
+  .log-msg { font-size: 9px; color: #8090b0; line-height: 1.35; }
+
+  .log-footer {
+    border-top: 1px solid #141c2e; padding: 6px 12px;
+    display: flex; justify-content: space-between;
+    font-size: 7px; color: #3a4560; letter-spacing: 0.08em;
+  }
+
+  .log-toggle {
+    display: none; position: fixed; bottom: 12px; right: 12px; z-index: 50;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #0f1520; border: 1px solid #1a2540;
+    color: #4a90d9; font-size: 18px; cursor: pointer;
+    box-shadow: 0 2px 12px #00000060;
+    align-items: center; justify-content: center;
+  }
+
+  @media (max-width: 700px) {
+    .log-panel { position: fixed; inset: 0; z-index: 90; width: 100%; transform: translateX(100%); transition: transform 0.3s ease; }
+    .log-panel.open { transform: translateX(0); }
+    .log-toggle { display: flex; }
+    .log-close {
+      display: block; position: absolute; top: 6px; right: 10px;
+      background: none; border: none; color: #4a5578; font-size: 18px; cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  }
+  @media (min-width: 701px) {
+    .log-close { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="scanline-overlay"></div>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-dot"></div>
+      <div>
+        <div class="header-title">COMMS INTERFACE</div>
+        <div class="header-sub">SECURE MULTI-CHANNEL AUDIO MONITORING</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div style="text-align:right">
+        <div class="header-time" id="clock"></div>
+        <div class="header-utc" id="utc"></div>
+      </div>
+      <div class="header-badge">ENCRYPTED</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="channels-panel" id="channelsPanel">
+      <div class="section-label">
+        <span>ACTIVE CHANNELS</span>
+        <span class="line"></span>
+        <span>6 ONLINE</span>
+      </div>
+      <div id="channelList"></div>
+    </div>
+
+    <!-- Log Panel -->
+    <div class="log-panel" id="logPanel">
+      <div class="log-header">
+        <span>ACTIVITY LOG</span>
+        <button class="log-close" id="logClose">&times;</button>
+        <span class="log-blink">●</span>
+      </div>
+      <div class="log-body" id="logBody"></div>
+      <div class="log-footer">
+        <span>LATENCY: 12ms</span>
+        <span>PKT LOSS: 0.00%</span>
+        <span>AES-256</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="log-toggle" id="logToggle">☰</button>
+
+<script>
+// === DATA ===
+const PARTICIPANTS = [
+  { codename:"OPERATOR", role:"Local Mic", color:"#ff3366", freq:"LOCAL", isMic:true },
+  { codename:"VIPER-6", role:"SIGINT Lead", color:"#00ff88", freq:"142.750 MHz" },
+  { codename:"GHOST-3", role:"Cyber Ops", color:"#00d4ff", freq:"156.300 MHz" },
+  { codename:"FALCON-9", role:"ISR Analyst", color:"#ff6b35", freq:"243.000 MHz" },
+  { codename:"SHADOW-1", role:"Ground Team", color:"#c678dd", freq:"380.125 MHz" },
+  { codename:"RAVEN-7", role:"ELINT Monitor", color:"#e5c07b", freq:"225.500 MHz" },
+];
+
+const LOG_MESSAGES = [
+  { from:"VIPER-6", msg:"SIGINT intercept confirmed on target freq — processing", p:"high" },
+  { from:"GHOST-3", msg:"Packet capture active — 2.4GHz sweep nominal", p:"normal" },
+  { from:"FALCON-9", msg:"ISR feed stable — thermal overlay enabled", p:"normal" },
+  { from:"SHADOW-1", msg:"Ground team in position — standing by", p:"normal" },
+  { from:"RAVEN-7", msg:"ELINT detection — new emitter bearing 247°", p:"high" },
+  { from:"VIPER-6", msg:"Cross-referencing signals database — match pending", p:"normal" },
+  { from:"GHOST-3", msg:"Network topology mapped — 14 nodes identified", p:"normal" },
+  { from:"FALCON-9", msg:"Repositioning asset — ETA 3 mikes", p:"normal" },
+  { from:"SHADOW-1", msg:"Movement detected sector 7 — investigating", p:"high" },
+  { from:"RAVEN-7", msg:"Frequency hop detected — tracking pattern", p:"normal" },
+  { from:"SYSTEM", msg:"COMSEC rotation complete — new keys active", p:"system" },
+  { from:"VIPER-6", msg:"Target emitter geolocated — coords relayed", p:"high" },
+  { from:"GHOST-3", msg:"Firewall traversal successful — maintaining persistence", p:"normal" },
+  { from:"SYSTEM", msg:"Link integrity check — all channels nominal", p:"system" },
+  { from:"FALCON-9", msg:"Weather update — visibility dropping — switching to SAR", p:"normal" },
+  { from:"SHADOW-1", msg:"Sector 7 clear — resuming overwatch", p:"normal" },
+  { from:"RAVEN-7", msg:"New SIGINT tasking received — adjusting collection", p:"normal" },
+];
+
+// === SIMULATED WAVEFORM ===
+class SimWave {
+  constructor(intensity) {
+    this.intensity = intensity || (0.4 + Math.random() * 0.5);
+    this.phase = Math.random() * Math.PI * 2;
+    this.noisePhase = Math.random() * 1000;
+    this.speaking = false;
+    this.speakT = 0; this.silenceT = 0;
+    this.nextSpeak = Math.random() * 300 + 100;
+    this.nextSilence = Math.random() * 200 + 60;
+    this.volume = 0; this.targetVol = 0;
+  }
+  update() {
+    this.phase += 0.08; this.noisePhase += 0.02;
+    if (this.speaking) {
+      this.speakT++;
+      if (this.speakT > this.nextSilence) {
+        this.speaking = false; this.silenceT = 0;
+        this.nextSpeak = Math.random() * 400 + 150; this.targetVol = 0;
+      }
+    } else {
+      this.silenceT++;
+      if (this.silenceT > this.nextSpeak) {
+        this.speaking = true; this.speakT = 0;
+        this.nextSilence = Math.random() * 250 + 80;
+        this.targetVol = Math.random() * 0.6 + 0.3;
+      }
+    }
+    this.volume += (this.targetVol - this.volume) * 0.08;
+  }
+  getData(len) {
+    const d = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      let v = Math.sin(this.phase + t * 12) * 0.3
+            + Math.sin(this.phase * 1.7 + t * 28) * 0.2
+            + Math.sin(this.phase * 0.5 + t * 6) * 0.15
+            + (Math.random() - 0.5) * 0.4
+            + Math.sin(this.noisePhase + t * 50) * 0.1;
+      d[i] = v * this.volume * this.intensity;
+    }
+    return d;
+  }
+}
+
+// === STATE ===
+const sims = {};
+PARTICIPANTS.forEach(p => { if (!p.isMic) sims[p.codename] = new SimWave(); });
+
+let micActive = false, audioCtx = null, analyser = null, micStream = null;
+let micData = new Float32Array(128);
+let logs = [];
+let logIdx = 0;
+
+// === DOM SETUP ===
+const channelList = document.getElementById('channelList');
+const logBody = document.getElementById('logBody');
+const clockEl = document.getElementById('clock');
+const utcEl = document.getElementById('utc');
+const logPanel = document.getElementById('logPanel');
+const logToggle = document.getElementById('logToggle');
+const logClose = document.getElementById('logClose');
+
+logToggle.onclick = () => logPanel.classList.toggle('open');
+logClose.onclick = () => logPanel.classList.remove('open');
+
+// Build channel cards
+const channels = {};
+PARTICIPANTS.forEach(p => {
+  const dim = p.color + '50';
+  const card = document.createElement('div');
+  card.className = 'channel-card';
+  card.style.setProperty('--ch-color', p.color);
+  card.style.setProperty('--ch-color-dim', dim);
+
+  card.innerHTML = `
+    <div class="accent" style="--ch-color-dim:${dim}"></div>
+    <div class="ch-header">
+      <div class="ch-left">
+        <span class="status-dot" data-dot></span>
+        <span class="codename" data-name>${p.codename}</span>
+        ${p.isMic ? `<button class="mic-btn" data-mic>○ OFF</button>` : ''}
+      </div>
+      <div class="ch-right">
+        <span class="ch-meta ch-freq">${p.freq}</span>
+        <span class="ch-meta ch-role" style="color:${dim}">${p.role}</span>
+      </div>
+    </div>
+    <div class="waveform-wrap">
+      <canvas data-glow></canvas>
+      <canvas data-wave></canvas>
+    </div>
+    <div class="level-meter"><div class="level-fill" data-level></div></div>
+  `;
+
+  if (p.isMic) {
+    const btn = card.querySelector('[data-mic]');
+    btn.addEventListener('click', toggleMic);
+  }
+
+  channelList.appendChild(card);
+  if (p.isMic) {
+    const sep = document.createElement('div');
+    sep.className = 'separator';
+    channelList.appendChild(sep);
+  }
+
+  channels[p.codename] = {
+    card, p,
+    dot: card.querySelector('[data-dot]'),
+    nameEl: card.querySelector('[data-name]'),
+    glowCanvas: card.querySelector('[data-glow]'),
+    waveCanvas: card.querySelector('[data-wave]'),
+    levelEl: card.querySelector('[data-level]'),
+    micBtn: card.querySelector('[data-mic]'),
+  };
+});
+
+// === MIC ===
+async function toggleMic() {
+  const ch = channels['OPERATOR'];
+  if (micActive) {
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioCtx) { audioCtx.close(); audioCtx = null; analyser = null; }
+    micActive = false;
+    micData = new Float32Array(128);
+    ch.micBtn.textContent = '○ OFF';
+    ch.micBtn.classList.remove('live');
+    return;
+  }
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new AudioContext();
+    const src = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    micActive = true;
+    ch.micBtn.textContent = '● LIVE';
+    ch.micBtn.classList.add('live');
+  } catch(e) {
+    console.warn('Mic denied', e);
+  }
+}
+
+// === DRAW WAVEFORM ===
+function drawWave(ch, data) {
+  const wrap = ch.waveCanvas.parentElement;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+
+  [ch.glowCanvas, ch.waveCanvas].forEach(c => {
+    c.width = w * dpr; c.height = h * dpr;
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+  });
+
+  const color = ch.p.color;
+  const rms = Math.sqrt(data.reduce((s, v) => s + v * v, 0) / data.length);
+  const isActive = rms > 0.03;
+  const mid = h / 2;
+  const amp = h * 0.38;
+
+  // Status
+  ch.dot.className = 'status-dot' + (isActive ? ' active' : '');
+  ch.nameEl.className = 'codename' + (isActive ? ' glow' : '');
+  ch.card.className = 'channel-card' + (isActive ? ' active' : '');
+
+  // Level
+  const db = rms > 0 ? Math.max(-60, 20 * Math.log10(rms)) : -60;
+  const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+  ch.levelEl.style.width = pct + '%';
+  if (pct > 60) ch.levelEl.style.boxShadow = `0 0 6px ${color}80`;
+  else ch.levelEl.style.boxShadow = 'none';
+
+  // Glow
+  const gctx = ch.glowCanvas.getContext('2d');
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gctx.clearRect(0, 0, w, h);
+  gctx.strokeStyle = color;
+  gctx.lineWidth = 6;
+  gctx.globalAlpha = 0.15;
+  gctx.filter = 'blur(4px)';
+  gctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / data.length) * w;
+    const y = mid + data[i] * amp;
+    i === 0 ? gctx.moveTo(x, y) : gctx.lineTo(x, y);
+  }
+  gctx.stroke();
+  gctx.filter = 'none'; gctx.globalAlpha = 1;
+
+  // Main wave
+  const ctx = ch.waveCanvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = color + '08';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y < h; y += h / 6) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = isActive ? 8 : 2;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = (i / data.length) * w;
+    const y = mid + data[i] * amp;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Center line
+  ctx.strokeStyle = color + '20';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+}
+
+// === CLOCK ===
+function updateClock() {
+  const now = new Date();
+  clockEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+  utcEl.textContent = now.toISOString().replace('T', ' ').split('.')[0] + 'Z';
+}
+
+// === LOGS ===
+function getColor(name) {
+  const p = PARTICIPANTS.find(x => x.codename === name);
+  return p ? p.color : '#4a90d9';
+}
+
+function addLog() {
+  const m = LOG_MESSAGES[logIdx % LOG_MESSAGES.length];
+  logIdx++;
+  const now = new Date();
+  const fromColor = m.from === 'SYSTEM' ? '#4a90d9' : getColor(m.from);
+  const borderColor = m.p === 'high' ? '#ff6b35' : fromColor + '60';
+
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.style.setProperty('--log-color', borderColor);
+  el.innerHTML = `
+    <div class="log-top">
+      <span class="log-from" style="color:${fromColor}">${m.from}</span>
+      <span class="log-time">${now.toLocaleTimeString('en-GB',{hour12:false})}</span>
+    </div>
+    <div class="log-msg">${m.msg}</div>
+  `;
+  logBody.prepend(el);
+  while (logBody.children.length > 15) logBody.removeChild(logBody.lastChild);
+}
+
+// Initial logs
+addLog(); addLog(); addLog();
+setInterval(addLog, 3500 + Math.random() * 2000);
+
+// === MAIN LOOP ===
+function tick() {
+  updateClock();
+
+  // Simulated channels
+  Object.entries(sims).forEach(([name, sim]) => {
+    sim.update();
+    const data = sim.getData(128);
+    drawWave(channels[name], data);
+  });
+
+  // Mic channel
+  if (micActive && analyser) {
+    const buf = new Float32Array(analyser.frequencyBinCount);
+    analyser.getFloatTimeDomainData(buf);
+    micData = buf;
+  } else {
+    micData = new Float32Array(128);
+  }
+  drawWave(channels['OPERATOR'], micData);
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// === PWA INSTALL PROMPT ===
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner
+  const banner = document.createElement('div');
+  banner.id = 'installBanner';
+  banner.style.cssText = `
+    position:fixed; bottom:60px; left:50%; transform:translateX(-50%); z-index:200;
+    background:#0f1520; border:1px solid #00d4ff40; border-radius:8px;
+    padding:10px 16px; display:flex; align-items:center; gap:12px;
+    box-shadow: 0 4px 20px #00000080; font-family:'JetBrains Mono',monospace;
+  `;
+  banner.innerHTML = `
+    <span style="font-size:11px;color:#c8d0e0;letter-spacing:0.05em">Install as app?</span>
+    <button id="installBtn" style="
+      background:#00d4ff20;border:1px solid #00d4ff60;border-radius:4px;
+      padding:4px 12px;color:#00d4ff;font-family:'JetBrains Mono',monospace;
+      font-size:10px;font-weight:600;cursor:pointer;letter-spacing:0.1em;
+    ">INSTALL</button>
+    <button id="installDismiss" style="
+      background:none;border:none;color:#4a5578;font-size:16px;cursor:pointer;
+      font-family:'JetBrains Mono',monospace;
+    ">&times;</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('installBtn').onclick = async () => {
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    banner.remove();
+  };
+  document.getElementById('installDismiss').onclick = () => banner.remove();
+});
+</script>
+</body>
+</html>
