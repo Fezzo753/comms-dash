@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <title>COMMS INTERFACE</title>
-<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ09NTVMgSU5URVJGQUNFIiwic2hvcnRfbmFtZSI6IkNPTU1TIiwiZGVzY3JpcHRpb24iOiJTZWN1cmUgTXVsdGktQ2hhbm5lbCBBdWRpbyBNb25pdG9yaW5nIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwNjBhMTIiLCJ0aGVtZV9jb2xvciI6IiMwNjBhMTIiLCJpY29ucyI6W119">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png">
+<link rel="apple-touch-icon" href="icon-192x192.png">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Oswald:wght@300;500;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -785,8 +787,14 @@ function tick() {
 requestAnimationFrame(tick);
 
 // ============================
-// PWA INSTALL
+// SERVICE WORKER + PWA
 // ============================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => console.log('SW registered:', reg.scope))
+    .catch(err => console.warn('SW failed:', err));
+}
+
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
